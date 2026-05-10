@@ -2,7 +2,7 @@ import https from 'https'
 import path from 'path'
 import os from 'os'
 import type { VersionManifest, VersionJson, ProgressEvent } from '../../types'
-import { mkdirSync, existsSync, createWriteStream, writeFileSync, unlinkSync, rmSync, readFileSync } from 'fs'
+import { mkdirSync, existsSync, createWriteStream, writeFileSync, unlinkSync, rmSync, readFileSync, readdirSync, statSync } from 'fs'
 import extractZip from 'extract-zip'
 
 export const MC_DIR = (() => {
@@ -198,13 +198,32 @@ export async function downloadInstance(
     writeFileSync(hashPath, remoteHash)
 }
 
+export function findJavaExec(javaDir: string): string {
+    if (existsSync(path.join(javaDir, 'bin', 'java.exe'))) return path.join(javaDir, 'bin', 'java.exe')
+    if (existsSync(path.join(javaDir, 'bin', 'java'))) return path.join(javaDir, 'bin', 'java')
+    if (existsSync(path.join(javaDir, 'Contents', 'Home', 'bin', 'java'))) return path.join(javaDir, 'Contents', 'Home', 'bin', 'java')
+    console.log('[Java] entries:', readdirSync(javaDir))
+    // Cherche un sous-dossier genre jdk-25.0.3+9
+    const entries = readdirSync(javaDir)
+    for (const entry of entries) {
+        const sub = path.join(javaDir, entry)
+        if (statSync(sub).isDirectory()) {
+            const candidates = [
+                path.join(sub, 'bin', 'java.exe'),
+                path.join(sub, 'bin', 'java'),
+                path.join(sub, 'Contents', 'Home', 'bin', 'java')
+            ]
+            for (const c of candidates) {
+                if (existsSync(c)) return c
+            }
+        }
+    }
+    throw new Error('Java introuvable dans ' + javaDir)
+}
+
 export async function downloadJava(onProgress: (e: ProgressEvent) => void): Promise<void> {
     const javaDir = path.join(MC_DIR, 'java', '25')
-    const javaExec = process.platform === 'darwin'
-        ? path.join(javaDir, 'Contents', 'Home', 'bin', 'java')
-        : process.platform === 'win32'
-            ? path.join(javaDir, 'bin', 'java.exe')
-            : path.join(javaDir, 'bin', 'java')
+    const javaExec = findJavaExec(javaDir)
 
     if (existsSync(javaExec)) return // déjà installé
 

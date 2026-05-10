@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import { getOfflineProfile } from './auth'
-import { MC_DIR } from './downloader'
+import { findJavaExec, MC_DIR } from './downloader'
 import type { LaunchOptions, VersionJson } from '../../types'
 
 export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
@@ -63,14 +63,10 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
     ...(serveur ? ['--server', serveur.ip, '--port', serveur.port.toString()] : []),
   ]
 
-  generateServersDat(gameDir, { name: "StelyCube", ip: "play.stelycube.fr" })
+  generateServersDat(gameDir, { name: "Minecraft server", ip: serveur?.ip ?? "" })
 
   const javaDir = path.join(MC_DIR, 'java', '25')
-  const javaExec = process.platform === 'darwin'
-    ? path.join(javaDir, 'Contents', 'Home', 'bin', 'java')
-    : process.platform === 'win32'
-      ? path.join(javaDir, 'bin', 'java.exe')
-      : path.join(javaDir, 'bin', 'java')
+  const javaExec = findJavaExec(javaDir)
 
   console.log('[launcher] java path:', javaExec)
   console.log('[launcher] java exists:', fs.existsSync(javaExec))
