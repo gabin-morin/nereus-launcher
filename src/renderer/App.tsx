@@ -109,9 +109,8 @@ export default function App() {
     setPage("login")
   }
 
-
   return (
-    <main className='bg-background/70 w-screen h-screen'>
+    <main className='bg-background/70 w-screen h-screen flex flex-col overflow-hidden relative'>
       <img className='w-full h-full object-cover absolute blur-lg -z-10 scale-125' src={BGImage} alt="Background" />
       <div style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} className='bg-primary z-50 w-screen h-8 flex items-center justify-end px-5 gap-2'>
         <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.minimize()}><img src={Minimize} alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
@@ -122,7 +121,7 @@ export default function App() {
         <Loader2 className='animate-spin text-white' />
       </div>}
       {page === "login" && <div className='flex items-center justify-center h-full'>
-        <Tabs defaultValue="offline" className="w-100 flex flex-col bg-primary p-6 rounded-xl items-center h-[50%]">
+        <Tabs defaultValue="offline" className="w-100 flex flex-col bg-primary text-white p-6 rounded-xl items-center h-[50%]">
           <TabsList className='bg-background p-1.25'>
             <TabsTrigger value="offline">Hors ligne</TabsTrigger>
             <TabsTrigger value="online">Connexion</TabsTrigger>
