@@ -5,6 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Loader2 } from 'lucide-react'
 import { Progress } from './components/ui/progress'
 import { OfflineProfile } from '../../types'
+import Minimize from "./assets/icons/minimize.svg"
+import Fullscreen from "./assets/icons/fullscreen.svg"
+import Close from "./assets/icons/close.svg"
 
 type LauncherInstance = {
   id: string
@@ -111,9 +114,9 @@ export default function App() {
     <main className='bg-background/70 w-screen h-screen'>
       <img className='w-full h-full object-cover absolute blur-lg -z-10 scale-125' src={BGImage} alt="Background" />
       <div style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} className='bg-primary z-50 w-screen h-8 flex items-center justify-end px-5 gap-2'>
-        <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.minimize()}><img src="/assets/icons/minimize.svg" alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
-        <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.toggleFullscreen()}><img src="/assets/icons/fullscreen.svg" alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
-        <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.close()}><img src="/assets/icons/close.svg" alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
+        <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.minimize()}><img src={Minimize} alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
+        <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.toggleFullscreen()}><img src={Fullscreen} alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
+        <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.close()}><img src={Close} alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
       </div>
       {page === "load" && <div className='flex items-center justify-center h-full'>
         <Loader2 className='animate-spin text-white' />
