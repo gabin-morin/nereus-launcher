@@ -7,6 +7,10 @@ export interface LaunchOptions {
     port: number
   }
   profile?: OfflineProfile | null
+  id: string
+  modloader: string
+  modloaderVersion: string
+  resourcePacks?: string[]
 }
 
 export interface OfflineProfile {
@@ -60,8 +64,11 @@ declare global {
       minimize: () => void
       toggleFullscreen: () => void
       close: () => void
+      logout: () => Promise<void>
       loginMicrosoft: () => Promise<OfflineProfile | null>
       autoLogin: () => Promise<OfflineProfile | null>
+      saveOfflineAuth: (username: string) => Promise<void>
+      loadOfflineAuth: () => Promise<{ username: string } | null>
     }
   }
 }

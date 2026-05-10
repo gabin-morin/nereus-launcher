@@ -1,0 +1,18 @@
+appId: fr.gabin-morin.nereus
+productName: Nereus Launcher
+
+mac:
+  target: dmg
+  category: public.app-category.games
+
+win:
+  target: nsis
+
+linux:
+  target: AppImage
+
+files:
+  - out/**/*
+
+directories:
+  output: release

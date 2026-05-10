@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('launcher', {
   close: (): void => { ipcRenderer.send('window-close') },
 
   loginMicrosoft: () => ipcRenderer.invoke('login-microsoft'),
+  autoLogin: (): Promise<MicrosoftProfile | null> => ipcRenderer.invoke('auto-login'),
+  logout: () => ipcRenderer.invoke('logout'),
 
-  autoLogin: () : Promise<MicrosoftProfile | null> => ipcRenderer.invoke('auto-login')
+  saveOfflineAuth: (username: string) => ipcRenderer.invoke('save-offline-auth', username),
+  loadOfflineAuth: () => ipcRenderer.invoke('load-offline-auth')
 })

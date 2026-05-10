@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import BGImage from "./assets/images/background.jpg"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from './components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { Loader2 } from 'lucide-react'
 import { Progress } from './components/ui/progress'
 import { OfflineProfile } from '../../types'
-// import { saveAuth } from '../main/main'
-import { resolve } from 'node:dns'
 
 type LauncherInstance = {
   id: string
@@ -31,7 +29,7 @@ export default function App() {
 
   const [selectedInstance, setSelectedInstance] = useState<LauncherInstance>()
 
-  const [page, setPage] = useState("login")
+  const [page, setPage] = useState("load")
   const [profile, setProfile] = useState<OfflineProfile | null>(null)
   const [instances, setInstances] = useState<LauncherInstance[]>([])
 
@@ -48,11 +46,21 @@ export default function App() {
 
   useEffect(() => {
     fetchManifest();
-    // window.launcher.autoLogin().then(profile => {
-    //   if (profile) {
-    //     setProfile(profile)
-    //   }
-    // })
+    window.launcher.autoLogin().then(profile => {
+      if (profile) {
+        console.log("Auto-login réussi :", profile)
+        setProfile(profile)
+        setPage("home")
+      }
+      else setPage("login")
+    })
+    window.launcher.loadOfflineAuth().then(username => {
+      if (username) {
+        console.log("Pseudo hors ligne trouvé :", username)
+        setUsername(username.username)
+        setPage("home")
+      }
+    })
     return window.launcher.onProgress(({ step, percent }) => {
       setStatus(step)
       setPercent(percent)
@@ -61,13 +69,14 @@ export default function App() {
 
   const checkUsername = () => {
     if (!username || username.trim().length < 2 || username.includes(' ')) return alert('Entre un pseudo valide !')
+    window.launcher.saveOfflineAuth(username.trim())
     setPage("home")
   }
 
   async function play() {
-    if (!selectedInstance) return alert('Sélectionne une instance !')
+    if (!selectedInstance || !selectedInstance.id) return alert('Sélectionne une instance !')
     setLoading(true)
-    const result = await window.launcher.launch({ username: username.trim(), version: selectedInstance?.version, ram, serveur: selectedInstance.serveur, profile })
+    const result = await window.launcher.launch({ username: username.trim(), version: selectedInstance?.version, ram, serveur: selectedInstance.serveur, profile, id: selectedInstance.id, modloader: selectedInstance.modloader, modloaderVersion: selectedInstance.modloaderVersion })
     if (!result.success) alert('Erreur : ' + result.error)
     setLoading(false)
   }
@@ -81,6 +90,7 @@ export default function App() {
     setLoadingProfile(true)
     try {
       const profile = await window.launcher.loginMicrosoft()
+      console.log(profile)
       setProfile(profile)
       setPage("home");
       setLoadingProfile(false)
@@ -90,6 +100,13 @@ export default function App() {
     }
   }
 
+  const logout = async () => {
+    await window.launcher.logout()
+    setProfile(null)
+    setPage("login")
+  }
+
+
   return (
     <main className='bg-background/70 w-screen h-screen'>
       <img className='w-full h-full object-cover absolute blur-lg -z-10 scale-125' src={BGImage} alt="Background" />
@@ -98,6 +115,9 @@ export default function App() {
         <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.toggleFullscreen()}><img src="/assets/icons/fullscreen.svg" alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
         <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.close()}><img src="/assets/icons/close.svg" alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
       </div>
+      {page === "load" && <div className='flex items-center justify-center h-full'>
+        <Loader2 className='animate-spin text-white' />
+      </div>}
       {page === "login" && <div className='flex items-center justify-center h-full'>
         <Tabs defaultValue="offline" className="w-100 flex flex-col bg-primary p-6 rounded-xl items-center h-[50%]">
           <TabsList className='bg-background p-1.25'>
@@ -116,15 +136,15 @@ export default function App() {
       {page === "home" && (
         <div className='flex w-full h-screen'>
           <div className='border-r min-w-1/4 border-white/20 p-6 flex flex-col gap-3.5'>
-            <div className='flex w-full justify-center gap-2 px-3.5 border-b border-white/20 pb-6'>
+            <button onClick={() => logout()} className='flex cursor-pointer hover:opacity-60 transition-all duration-150 w-full justify-center gap-2 px-3.5 border-b border-white/20 pb-6'>
               <img className='h-14' src={`https://mc-heads.net/avatar/${profile ? profile.username : username}`} />
               <div>
                 <p className='text-white text-xl'>{profile ? profile.username : username}</p>
                 <p className='text-white/60 text-nowrap'>{profile ? "Connecté" : "Hors ligne"}</p>
               </div>
-            </div>
+            </button>
             <p className='text-white'>Instance</p>
-            <Select defaultValue={instances[0].id} onValueChange={(val) => changeValue(val)}>
+            {instances && instances.length > 0 &&< Select defaultValue={instances[0].id} onValueChange={(val) => changeValue(val)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Instances" />
               </SelectTrigger>
@@ -136,13 +156,13 @@ export default function App() {
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
+            </Select>}
           </div>
           <div className='px-12 w-full flex text-white flex-col justify-center gap-5'>
             <h1 className='text-7xl font-bold '>{selectedInstance?.label}</h1>
             {percent > 0 && (
-              <div className='flex gap-2 items-center w-2/3'>
-                <Progress className='h-2 bg-white/40' value={percent} max={100} />
+              <div className='flex gap-2 items-center w-full'>
+                <Progress className='h-2 bg-white/40 w-2/3' value={percent} max={100} />
                 <p className='w-full'>{status}</p>
               </div>
             )}

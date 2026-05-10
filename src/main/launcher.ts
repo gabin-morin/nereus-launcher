@@ -7,7 +7,7 @@ import { MC_DIR } from './downloader'
 import type { LaunchOptions, VersionJson } from '../../types'
 
 export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
-  const { username, version, ram, profile } = opts
+  const { username, version, ram, profile, id, serveur } = opts
   const currentProfile = profile ?? getOfflineProfile(username)
 
   const versionJsonPath = path.join(MC_DIR, 'versions', version, `${version}.json`)
@@ -18,14 +18,32 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
     .filter((l) => l.downloads?.artifact)
     .map((l) => path.join(MC_DIR, 'libraries', l.downloads!.artifact!.path))
 
+  let mainClass = versionJson.mainClass
+
+  if (opts.modloader === 'fabric') {
+    const fabricJsonPath = path.join(MC_DIR, 'versions', `fabric-${version}-${opts.modloaderVersion}`, 'fabric.json')
+    const fabricProfile = JSON.parse(fs.readFileSync(fabricJsonPath, 'utf8'))
+    mainClass = fabricProfile.mainClass
+
+    const fabricLibs = fabricProfile.libraries
+      .map((l: { name: string }) => {
+        const [group, artifact, ver] = l.name.split(':')
+        const groupPath = group.replace(/\./g, '/')
+        return path.join(MC_DIR, 'libraries', `${groupPath}/${artifact}/${ver}/${artifact}-${ver}.jar`)
+      })
+
+    libPaths.unshift(...fabricLibs)
+  }
+
   const jarPath = path.join(MC_DIR, 'versions', version, `${version}.jar`)
   const sep = os.platform() === 'win32' ? ';' : ':'
   const classpath = [...libPaths, jarPath].join(sep)
 
-  const gameDir = path.join(MC_DIR, 'game')
+  const gameDir = path.join(MC_DIR, 'instances', id, 'game')
   const nativesDir = path.join(MC_DIR, 'versions', version, 'natives')
   fs.mkdirSync(gameDir, { recursive: true })
   fs.mkdirSync(nativesDir, { recursive: true })
+
 
   const args: string[] = [
     ...(process.platform === 'darwin' ? ['-XstartOnFirstThread'] : []),
@@ -33,7 +51,7 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
     `-Xms512M`,
     `-Djava.library.path=${nativesDir}`,
     '-cp', classpath,
-    versionJson.mainClass,
+    mainClass,
     '--username', currentProfile.username,
     '--uuid', currentProfile.uuid,
     '--accessToken', currentProfile.accessToken,
@@ -42,14 +60,58 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
     '--gameDir', gameDir,
     '--assetsDir', path.join(MC_DIR, 'assets'),
     '--assetIndex', versionJson.assetIndex.id,
-    "--server", "play.stelycube.fr",
-    "--port", "25565",
-    // ...(serveur ? ['--server', serveur.ip, '--port', serveur.port.toString()] : []),
+    ...(serveur ? ['--server', serveur.ip, '--port', serveur.port.toString()] : []),
   ]
 
   generateServersDat(gameDir, { name: "StelyCube", ip: "play.stelycube.fr" })
 
-  const java = spawn('java', args, { detached: true, stdio: 'pipe' })
+  const javaDir = path.join(MC_DIR, 'java', '25')
+  const javaExec = process.platform === 'darwin'
+    ? path.join(javaDir, 'Contents', 'Home', 'bin', 'java')
+    : process.platform === 'win32'
+      ? path.join(javaDir, 'bin', 'java.exe')
+      : path.join(javaDir, 'bin', 'java')
+
+  console.log('[launcher] java path:', javaExec)
+  console.log('[launcher] java exists:', fs.existsSync(javaExec))
+
+
+
+  // Ressources packs
+  const resourcepacksDir = path.join(gameDir, 'resourcepacks')
+  fs.mkdirSync(resourcepacksDir, { recursive: true })
+
+  const packs = fs.existsSync(resourcepacksDir)
+    ? fs.readdirSync(resourcepacksDir)
+      .filter(f => !f.startsWith('.') && (f.endsWith('.zip') || f.endsWith('.jar')))
+      .map(f => `"file/${f}"`)
+    : []
+
+  const modsDir = path.join(gameDir, 'mods')
+  const mods = fs.existsSync(modsDir) ? fs.readdirSync(modsDir) : []
+
+  const builtinPacks: string[] = []
+  if (mods.some(m => m.includes('continuity'))) builtinPacks.push('"continuity:default"', '"continuity:connected_glass"', '"continuity:glass_pane_culling_fix"')
+  if (mods.some(m => m.includes('sodium'))) builtinPacks.push('"sodium:default"')
+
+  const allPacks = [...builtinPacks, ...packs]
+
+  if (packs.length > 0) {
+    const optionsPath = path.join(gameDir, 'options.txt')
+    let options = fs.existsSync(optionsPath) ? fs.readFileSync(optionsPath, 'utf8') : ''
+
+    const packsStr = `resourcePacks:[${allPacks.join(',')}]`
+    if (options.includes('resourcePacks:')) {
+      options = options.replace(/resourcePacks:.*/, packsStr)
+    } else {
+      options += `\n${packsStr}`
+    }
+
+    console.log(options)
+    fs.writeFileSync(optionsPath, options)
+  }
+
+  const java = spawn(javaExec, args, { detached: true, stdio: 'pipe' })
 
   java.stdout?.on('data', (d: Buffer) => console.log('[MC]', d.toString().trim()))
   java.stderr?.on('data', (d: Buffer) => console.error('[MC]', d.toString().trim()))

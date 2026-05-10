@@ -1,10 +1,11 @@
 import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron'
 import path from 'path'
 import { launchMinecraft } from './launcher'
-import { downloadVersion } from './downloader'
+import { downloadJava, downloadVersion } from './downloader'
 import type { LaunchOptions, LaunchResult, ProgressEvent } from '../../types'
 import { is } from '@electron-toolkit/utils'
-import { loginMicrosoft } from './auth'
+import { loginMicrosoft, MicrosoftProfile, refreshMicrosoft } from './auth'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 
 function createWindow(): void {
     const win = new BrowserWindow({
@@ -32,9 +33,13 @@ ipcMain.handle(
     'launch',
     async (event: IpcMainInvokeEvent, opts: LaunchOptions): Promise<LaunchResult> => {
         try {
-            await downloadVersion(opts.version, (progress: ProgressEvent) => {
-                event.sender.send('progress', progress)
-            })
+            await downloadJava((progress) => event.sender.send('progress', progress))
+            await downloadVersion(
+                opts.version,
+                (progress: ProgressEvent) => event.sender.send('progress', progress),
+                opts.modloader ? { type: opts.modloader, version: opts.modloaderVersion } : undefined,
+                opts.id
+            )
             await launchMinecraft(opts)
             return { success: true }
         } catch (err) {
@@ -61,17 +66,74 @@ ipcMain.handle('login-microsoft', async () => {
 
     // Intercepte le redirect pour récupérer le code
     return new Promise((resolve, reject) => {
+        let handled = false
+
         const handleUrl = (url: string) => {
+            if (handled) return
             if (url.startsWith('https://login.live.com/oauth20_desktop.srf')) {
+                handled = true  // ← bloque closed immédiatement
                 const code = new URL(url).searchParams.get('code')
                 authWindow.close()
-                if (code) resolve(loginMicrosoft(code))
-                else reject(new Error('Pas de code'))
+                if (code) {
+                    loginMicrosoft(code).then(profile => {
+                        saveAuth(profile)
+                        resolve(profile)
+                    }).catch(reject)
+                } else {
+                    reject(new Error('Pas de code'))
+                }
             }
         }
 
         authWindow.webContents.on('will-redirect', (_event, url) => handleUrl(url))
-        authWindow.webContents.on('did-navigate', (_event, url) => handleUrl(url))
-        authWindow.on('closed', () => reject(new Error('Fenêtre fermée')))
+        authWindow.on('closed', () => { if (!handled) reject(new Error('Fenêtre fermée')) })
     })
 })
+
+const authPath = path.join(app.getPath('userData'), 'auth.json')
+
+export function saveAuth(profile: MicrosoftProfile) {
+    writeFileSync(authPath, JSON.stringify({ refreshToken: profile.refreshToken }))
+}
+
+export function loadAuth(): { refreshToken: string } | null {
+    try {
+        return JSON.parse(readFileSync(authPath, 'utf8'))
+    } catch {
+        return null
+    }
+}
+
+ipcMain.handle('auto-login', async () => {
+    const auth = loadAuth()
+    if (!auth) return null
+    try {
+        const profile = await refreshMicrosoft(auth.refreshToken)
+        saveAuth(profile) // met à jour le refresh token
+        return profile
+    } catch {
+        return null;
+    }
+})
+
+ipcMain.handle('logout', () => {
+    if (existsSync(authPath)) unlinkSync(authPath)
+    if (existsSync(offlineAuthPath)) unlinkSync(offlineAuthPath)
+})
+
+const offlineAuthPath = path.join(app.getPath('userData'), 'offline-auth.json')
+
+export function saveOfflineAuth(username: string) {
+  writeFileSync(offlineAuthPath, JSON.stringify({ username }))
+}
+
+export function loadOfflineAuth(): { username: string } | null {
+  try {
+    return JSON.parse(readFileSync(offlineAuthPath, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+ipcMain.handle('save-offline-auth', (_event, username: string) => saveOfflineAuth(username))
+ipcMain.handle('load-offline-auth', () => loadOfflineAuth())
