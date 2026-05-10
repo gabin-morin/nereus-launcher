@@ -3,5 +3,5 @@ logs
 node_modules
 out
 config
-
+release
 *.DS_Store

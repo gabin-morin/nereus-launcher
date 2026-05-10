@@ -8,11 +8,16 @@ import { loginMicrosoft, MicrosoftProfile, refreshMicrosoft } from './auth'
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 
 function createWindow(): void {
+    const iconPath = is.dev
+        ? path.join(__dirname, '../../build/win-icon.ico')
+        : path.join(process.resourcesPath, 'build', 'win-icon.ico')
+
     const win = new BrowserWindow({
         width: 900,
         height: 600,
         frame: false,
         resizable: false,
+        icon: process.platform === 'win32' ? iconPath : undefined,
         webPreferences: {
             preload: path.join(__dirname, '../preload/preload.js'),
             contextIsolation: true,
@@ -25,6 +30,8 @@ function createWindow(): void {
         win.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
 }
+
+if (process.platform === 'win32') app.setAppUserModelId('fr.gabin-morin.nereus')
 
 app.whenReady().then(createWindow)
 app.on('window-all-closed', () => app.quit())
