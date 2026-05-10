@@ -4,7 +4,14 @@ import os from 'os'
 import type { VersionManifest, VersionJson, ProgressEvent } from '../../types'
 import { mkdirSync, existsSync, createWriteStream, writeFileSync } from 'fs'
 
-export const MC_DIR = path.join(process.env.APPDATA ?? os.homedir(), '.nereus-mc')
+export const MC_DIR = (() => {
+  switch (process.platform) {
+    case 'win32': return path.join(process.env.APPDATA!, '.nereus-launcher')
+    case 'darwin': return path.join(os.homedir(), 'Library', 'Application Support', '.nereus-launcher')
+    default: return path.join(os.homedir(), '.nereus-launcher')
+  }
+})()
+
 const VERSIONS_URL = 'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json'
 
 function httpsGet<T>(url: string): Promise<T> {

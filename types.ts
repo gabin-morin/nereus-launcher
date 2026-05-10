@@ -2,6 +2,11 @@ export interface LaunchOptions {
   username: string
   version: string
   ram: number
+  serveur?: {
+    ip: string
+    port: number
+  }
+  profile?: OfflineProfile | null
 }
 
 export interface OfflineProfile {
@@ -55,6 +60,8 @@ declare global {
       minimize: () => void
       toggleFullscreen: () => void
       close: () => void
+      loginMicrosoft: () => Promise<OfflineProfile | null>
+      autoLogin: () => Promise<OfflineProfile | null>
     }
   }
 }

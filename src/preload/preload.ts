@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { LaunchOptions, LaunchResult, ProgressEvent } from '../../types'
+import { MicrosoftProfile } from '../main/auth'
 
 contextBridge.exposeInMainWorld('launcher', {
   launch: (opts: LaunchOptions): Promise<LaunchResult> =>
@@ -11,5 +12,9 @@ contextBridge.exposeInMainWorld('launcher', {
 
   minimize: (): void => { ipcRenderer.send('window-minimize') },
   toggleFullscreen: (): void => { ipcRenderer.send('window-toggle-fullscreen') },
-  close: (): void => { ipcRenderer.send('window-close') }
+  close: (): void => { ipcRenderer.send('window-close') },
+
+  loginMicrosoft: () => ipcRenderer.invoke('login-microsoft'),
+
+  autoLogin: () : Promise<MicrosoftProfile | null> => ipcRenderer.invoke('auto-login')
 })
