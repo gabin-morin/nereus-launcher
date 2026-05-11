@@ -4,6 +4,7 @@ productName: Nereus Launcher
 mac:
   target: dmg
   category: public.app-category.games
+  icon: build/win-icon.png
 
 win:
   target: nsis

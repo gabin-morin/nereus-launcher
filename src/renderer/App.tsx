@@ -24,7 +24,7 @@ type LauncherInstance = {
 
 export default function App() {
   const [username, setUsername] = useState('')
-  const [ram, setRam] = useState(2048)
+  const [ram, setRam] = useState(4)
   const [status, setStatus] = useState('')
   const [percent, setPercent] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -146,7 +146,7 @@ export default function App() {
               </div>
             </button>
             <p className='text-white'>Instance</p>
-            {instances && instances.length > 0 &&< Select defaultValue={instances[0].id} onValueChange={(val) => changeValue(val)}>
+            {instances && instances.length > 0 && < Select defaultValue={instances[0].id} onValueChange={(val) => changeValue(val)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Instances" />
               </SelectTrigger>
@@ -159,7 +159,10 @@ export default function App() {
                 ))}
               </SelectContent>
             </Select>}
+            <p className='text-white'>Ram</p>
+            <input className='text-white bg-primary rounded-lg px-2 py-1.25' value={ram} type="number" onChange={e => setRam(+e.target.value)} placeholder="RAM (MB)" />
           </div>
+
           <div className='px-12 w-full flex text-white flex-col justify-center gap-5'>
             <h1 className='text-7xl font-bold '>{selectedInstance?.label}</h1>
             {percent > 0 && (
@@ -171,7 +174,6 @@ export default function App() {
             <button className='bg-[#BD3D3D] text-white hover:opacity-80 transition-all duration-150 cursor-pointer rounded-xl py-2.5 px-6 w-fit' onClick={play} disabled={loading}>{loading ? <Loader2 className='animate-spin' /> : "JOUER"}</button>
           </div>
           <div className='absolute bottom-0'>
-            <input value={ram} type="number" onChange={e => setRam(+e.target.value)} placeholder="RAM (MB)" />
           </div>
         </div>
       )}

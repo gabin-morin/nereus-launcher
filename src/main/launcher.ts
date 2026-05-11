@@ -47,7 +47,7 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
 
   const args: string[] = [
     ...(process.platform === 'darwin' ? ['-XstartOnFirstThread'] : []),
-    `-Xmx${ram}M`,
+    `-Xmx${ram}G`,
     `-Xms512M`,
     `-Djava.library.path=${nativesDir}`,
     '-cp', classpath,
