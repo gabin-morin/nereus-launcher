@@ -223,11 +223,18 @@ export function findJavaExec(javaDir: string): string {
 
 export async function downloadJava(onProgress: (e: ProgressEvent) => void): Promise<void> {
     const javaDir = path.join(MC_DIR, 'java', '25')
-    const javaExec = findJavaExec(javaDir)
 
-    if (existsSync(javaExec)) return // déjà installé
+    if (existsSync(javaDir)) {
+        try {
+            const javaExec = findJavaExec(javaDir)
+            if (existsSync(javaExec)) return // déjà installé
+        } catch {
+            // Java introuvable, on re-télécharge
+        }
+    }
 
     onProgress({ step: 'Téléchargement de Java 25...', percent: 0 })
+
 
     const os = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'windows' : 'linux'
     const arch = process.arch === 'arm64' ? 'aarch64' : 'x64'
@@ -264,6 +271,9 @@ export async function downloadJava(onProgress: (e: ProgressEvent) => void): Prom
         }
     }
 
+    console.log('[Java] Contenu de javaDir:')
+listDir(javaDir)
+
     onProgress({ step: 'Java prêt !', percent: 100 })
 }
 
@@ -276,4 +286,13 @@ async function downloadFileFollowRedirects(url: string, dest: string): Promise<v
 
     const buffer = await response.arrayBuffer()
     writeFileSync(dest, Buffer.from(buffer))
+}
+
+function listDir(dir: string, depth = 0) {
+    if (depth > 3) return
+    for (const f of readdirSync(dir)) {
+        console.log('  '.repeat(depth) + f)
+        const full = path.join(dir, f)
+        if (require('fs').statSync(full).isDirectory()) listDir(full, depth + 1)
+    }
 }

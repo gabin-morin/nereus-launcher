@@ -18,3 +18,8 @@ files:
 
 directories:
   output: release
+
+publish:
+  provider: github
+  owner: beastsheep
+  repo: https://github.com/gabin-morin/nereus-launcher
