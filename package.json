@@ -3,7 +3,7 @@
 	"productName": "Nereus Launcher",
 	"description": "Nereus Launcher",
 	"author": "Gabin Morin",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"main": "out/main/main.mjs",
 	"scripts": {
 		"dev": "electron-vite dev",
