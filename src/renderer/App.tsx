@@ -171,7 +171,7 @@ export default function App() {
                 <p className='w-full'>{status}</p>
               </div>
             )}
-            <button className='bg-blue-500 text-white hover:opacity-80 transition-all duration-150 cursor-pointer rounded-xl py-2.5 px-6 w-fit' onClick={play} disabled={loading}>{loading ? <Loader2 className='animate-spin' /> : "JOUER"}</button>
+            <button className='bg-[#BD3D3D] text-white hover:opacity-80 transition-all duration-150 cursor-pointer rounded-xl py-2.5 px-6 w-fit' onClick={play} disabled={loading}>{loading ? <Loader2 className='animate-spin' /> : "JOUER"}</button>
           </div>
           <div className='absolute bottom-0'>
           </div>

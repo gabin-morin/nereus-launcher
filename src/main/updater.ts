@@ -1,13 +1,16 @@
 import { autoUpdater } from 'electron-updater'
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import log from 'electron-log'
 
 autoUpdater.logger = log
-autoUpdater.autoDownload = true      // ✅ télécharge automatiquement
-autoUpdater.autoInstallOnAppQuit = true // ✅ installe à la fermeture
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
 
 export function initAutoUpdater(win: BrowserWindow) {
-    autoUpdater.checkForUpdates()
+
+    autoUpdater.checkForUpdates().catch(err => {
+        log.warn('[Updater] checkForUpdates failed:', err.message)
+    })
 
     // Optionnel : notifier l'UI qu'une mise à jour est en cours
     autoUpdater.on('update-available', (info) => {
@@ -26,5 +29,9 @@ export function initAutoUpdater(win: BrowserWindow) {
 
     autoUpdater.on('error', (err) => {
         log.error('[Updater]', err)
+        // Ne pas envoyer l'erreur "No published versions" à l'UI
+        if (!err.message.includes('No published versions')) {
+            win.webContents.send('update:error', err.message)
+        }
     })
 }
