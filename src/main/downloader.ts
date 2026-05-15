@@ -2,7 +2,7 @@ import https from 'https'
 import path from 'path'
 import os from 'os'
 import type { VersionManifest, VersionJson, ProgressEvent } from '../../types'
-import { mkdirSync, existsSync, createWriteStream, writeFileSync, unlinkSync, rmSync, readFileSync, readdirSync, statSync } from 'fs'
+import { mkdirSync, existsSync, createWriteStream, writeFileSync, unlinkSync, rmSync, readFileSync, readdirSync, statSync, copyFileSync } from 'fs'
 import extractZip from 'extract-zip'
 
 export const MC_DIR = (() => {
@@ -169,7 +169,6 @@ export async function downloadInstance(
     const zipPath = path.join(MC_DIR, 'instances', instanceId, 'instance.zip')
     const hashPath = path.join(MC_DIR, 'instances', instanceId, 'instance.zip.sha256')
 
-    // Vérifie le hash distant
     const remoteHash = await fetch(`${BASE_URL}/instance.zip.sha256`).then(r => r.text()).then(t => t.trim())
     const localHash = existsSync(hashPath) ? readFileSync(hashPath, 'utf8').trim() : ''
 
@@ -178,22 +177,47 @@ export async function downloadInstance(
         return
     }
 
-    // Hash différent → re-télécharge
     if (existsSync(zipPath)) unlinkSync(zipPath)
-    if (existsSync(instanceDir)) rmSync(instanceDir, { recursive: true, force: true })
 
     const zipResponse = await fetch(`${BASE_URL}/instance.zip`, { method: 'HEAD' })
     if (!zipResponse.ok) {
         onProgress({ step: 'Aucune instance trouvée', percent: 100 })
-        return;
-    } 
+        return
+    }
 
     onProgress({ step: "Téléchargement de l'instance...", percent: 85 })
     await downloadFileFollowRedirects(`${BASE_URL}/instance.zip`, zipPath)
 
     onProgress({ step: 'Extraction...', percent: 95 })
+
+    const tmpDir = path.join(MC_DIR, 'instances', instanceId, '_tmp')
+    if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true })
+    mkdirSync(tmpDir, { recursive: true })
+    await extractZip(zipPath, { dir: tmpDir })
+
+    const UPDATABLE = new Set(['mods', 'resourcepacks', 'shaderpacks'])
+
     mkdirSync(instanceDir, { recursive: true })
-    await extractZip(zipPath, { dir: instanceDir })
+
+
+    function copyDir(src: string, dest: string) {
+        mkdirSync(dest, { recursive: true })
+        for (const entry of readdirSync(src)) {
+            if (!UPDATABLE.has(entry)) continue // on ne touche qu'aux dossiers connus
+            const srcPath = path.join(src, entry)
+            const destPath = path.join(dest, entry)
+            if (statSync(srcPath).isDirectory()) {
+                // Pour les mods : remplacer entièrement le dossier
+                if (existsSync(destPath)) rmSync(destPath, { recursive: true, force: true })
+                copyDir(srcPath, destPath)
+            } else {
+                copyFileSync(srcPath, destPath)
+            }
+        }
+    }
+
+    copyDir(tmpDir, instanceDir)
+    rmSync(tmpDir, { recursive: true, force: true })
 
     writeFileSync(hashPath, remoteHash)
 }
@@ -272,7 +296,7 @@ export async function downloadJava(onProgress: (e: ProgressEvent) => void): Prom
     }
 
     console.log('[Java] Contenu de javaDir:')
-listDir(javaDir)
+    listDir(javaDir)
 
     onProgress({ step: 'Java prêt !', percent: 100 })
 }
@@ -293,6 +317,6 @@ function listDir(dir: string, depth = 0) {
     for (const f of readdirSync(dir)) {
         console.log('  '.repeat(depth) + f)
         const full = path.join(dir, f)
-        if (require('fs').statSync(full).isDirectory()) listDir(full, depth + 1)
+        if (statSync(full).isDirectory()) listDir(full, depth + 1)
     }
 }

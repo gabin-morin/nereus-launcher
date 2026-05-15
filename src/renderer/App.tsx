@@ -30,6 +30,10 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(false)
 
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'available' | 'downloading' | 'downloaded'>('idle')
+  const [updatePercent, setUpdatePercent] = useState(0)
+  const [updateVersion, setUpdateVersion] = useState('')
+
   const [selectedInstance, setSelectedInstance] = useState<LauncherInstance>()
 
   const [page, setPage] = useState("load")
@@ -64,6 +68,19 @@ export default function App() {
         setPage("home")
       }
     })
+
+    window.launcher.onUpdateAvailable((info: any) => {
+      setUpdateVersion(info.version)
+      setUpdateStatus('available')
+    })
+    window.launcher.onUpdateProgress((p: any) => {
+      setUpdateStatus('downloading')
+      setUpdatePercent(Math.round(p.percent))
+    })
+    window.launcher.onUpdateDownloaded(() => {
+      setUpdateStatus('downloaded')
+    })
+
     return window.launcher.onProgress(({ step, percent }) => {
       setStatus(step)
       setPercent(percent)
@@ -117,6 +134,42 @@ export default function App() {
         <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.toggleFullscreen()}><img src={Fullscreen} alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
         <button style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} onClick={() => window.launcher.close()}><img src={Close} alt="Logo" className="h-4 w-4 pointer-events-none" /></button>
       </div>
+      {updateStatus !== 'idle' && (
+        <div className='absolute inset-0 z-50 flex flex-col items-center justify-center gap-6'
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+
+          <div className='flex flex-col items-center gap-4 text-white'>
+
+            {updateStatus === 'available' && (
+              <>
+                <Loader2 className='animate-spin w-10 h-10' />
+                <p className='text-xl font-bold'>Mise à jour {updateVersion} disponible</p>
+                <p className='text-white/60'>Téléchargement en cours...</p>
+              </>
+            )}
+
+            {updateStatus === 'downloading' && (
+              <>
+                <Loader2 className='animate-spin w-10 h-10' />
+                <p className='text-xl font-bold'>Mise à jour en cours...</p>
+                <div className='flex flex-col items-center gap-2 w-72'>
+                  <Progress className='h-2 bg-white/20 w-full' value={updatePercent} />
+                  <p className='text-white/60 text-sm'>{updatePercent}%</p>
+                </div>
+              </>
+            )}
+
+            {updateStatus === 'downloaded' && (
+              <>
+                <div className='w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white text-xl'>✓</div>
+                <p className='text-xl font-bold'>Mise à jour prête !</p>
+                <p className='text-white/60'>Redémarrage en cours...</p>
+              </>
+            )}
+
+          </div>
+        </div>
+      )}
       {page === "load" && <div className='flex items-center justify-center h-full'>
         <Loader2 className='animate-spin text-white' />
       </div>}
@@ -171,7 +224,7 @@ export default function App() {
                 <p className='w-full'>{status}</p>
               </div>
             )}
-            <button className='bg-[#BD3D3D] text-white hover:opacity-80 transition-all duration-150 cursor-pointer rounded-xl py-2.5 px-6 w-fit' onClick={play} disabled={loading}>{loading ? <Loader2 className='animate-spin' /> : "JOUER"}</button>
+            <button className='bg-blue-500 text-white hover:opacity-80 transition-all duration-150 cursor-pointer rounded-xl py-2.5 px-6 w-fit' onClick={play} disabled={loading}>{loading ? <Loader2 className='animate-spin' /> : "JOUER"}</button>
           </div>
           <div className='absolute bottom-0'>
           </div>
