@@ -194,21 +194,15 @@ export async function downloadInstance(
     if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true })
     mkdirSync(tmpDir, { recursive: true })
     await extractZip(zipPath, { dir: tmpDir })
-
+    
     const UPDATABLE = new Set(['mods', 'resourcepacks', 'shaderpacks'])
-
-    mkdirSync(instanceDir, { recursive: true })
-
 
     function copyDir(src: string, dest: string) {
         mkdirSync(dest, { recursive: true })
         for (const entry of readdirSync(src)) {
-            if (!UPDATABLE.has(entry)) continue // on ne touche qu'aux dossiers connus
             const srcPath = path.join(src, entry)
             const destPath = path.join(dest, entry)
             if (statSync(srcPath).isDirectory()) {
-                // Pour les mods : remplacer entièrement le dossier
-                if (existsSync(destPath)) rmSync(destPath, { recursive: true, force: true })
                 copyDir(srcPath, destPath)
             } else {
                 copyFileSync(srcPath, destPath)
@@ -216,7 +210,18 @@ export async function downloadInstance(
         }
     }
 
-    copyDir(tmpDir, instanceDir)
+    for (const folder of UPDATABLE) {
+        const srcFolder = path.join(tmpDir, folder)
+        const destFolder = path.join(instanceDir, folder)
+
+        if (!existsSync(srcFolder)) continue
+
+        if (existsSync(destFolder)) rmSync(destFolder, { recursive: true, force: true })
+
+        copyDir(srcFolder, destFolder)
+        console.log(`[instance] ${folder} mis à jour`)
+    }
+
     rmSync(tmpDir, { recursive: true, force: true })
 
     writeFileSync(hashPath, remoteHash)
