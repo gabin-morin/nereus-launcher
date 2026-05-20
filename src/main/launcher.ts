@@ -79,7 +79,12 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
 
   const packs = fs.existsSync(resourcepacksDir)
     ? fs.readdirSync(resourcepacksDir)
-      .filter(f => !f.startsWith('.') && (f.endsWith('.zip') || f.endsWith('.jar')))
+      .filter(f => {
+        if (f.startsWith('.')) return false
+
+        const fullPath = path.join(resourcepacksDir, f)
+        return fs.statSync(fullPath).isDirectory() || f.endsWith('.zip') || f.endsWith('.jar')
+      })
       .map(f => `"file/${f}"`)
     : []
 
