@@ -1,8 +1,9 @@
 import https from 'https'
 import path from 'path'
 import os from 'os'
+import { createHash, randomUUID } from 'crypto'
 import type { VersionManifest, VersionJson, ProgressEvent } from '../../types'
-import { mkdirSync, existsSync, createWriteStream, writeFileSync, unlinkSync, rmSync, readFileSync, readdirSync, statSync } from 'fs'
+import { mkdirSync, existsSync, createWriteStream, writeFileSync, readFileSync, rmSync, readdirSync, statSync, renameSync } from 'fs'
 import extractZip from 'extract-zip'
 
 export const MC_DIR = (() => {
@@ -164,38 +165,98 @@ export async function downloadInstance(
     instanceId: string,
     onProgress: (e: ProgressEvent) => void
 ): Promise<void> {
-    const BASE_URL = `https://gabin-morin.fr/nereus/${instanceId}`
+    if (!/^[a-zA-Z0-9_-]+$/.test(instanceId)) {
+        throw new Error('Identifiant d’instance invalide')
+    }
+
+    const downloadUrl = `https://nereus.gabin-morin.fr/api/instances/${encodeURIComponent(instanceId)}/download`
+    const instanceRoot = path.join(MC_DIR, 'instances', instanceId)
     const instanceDir = path.join(MC_DIR, 'instances', instanceId, 'game')
     const zipPath = path.join(MC_DIR, 'instances', instanceId, 'instance.zip')
     const hashPath = path.join(MC_DIR, 'instances', instanceId, 'instance.zip.sha256')
-
-    // Vérifie le hash distant
-    const remoteHash = await fetch(`${BASE_URL}/instance.zip.sha256`).then(r => r.text()).then(t => t.trim())
     const localHash = existsSync(hashPath) ? readFileSync(hashPath, 'utf8').trim() : ''
+    const canCheckForUpdates = /^[a-f0-9]{64}$/i.test(localHash) && existsSync(instanceDir)
+    const headers: Record<string, string> = {}
 
-    if (remoteHash === localHash) {
+    if (canCheckForUpdates) {
+        headers['If-None-Match'] = `"${localHash}"`
+    }
+
+    const response = await fetch(downloadUrl, { headers })
+
+    if (response.status === 304 && canCheckForUpdates) {
         onProgress({ step: 'Instance à jour !', percent: 100 })
         return
     }
 
-    // Hash différent → re-télécharge
-    if (existsSync(zipPath)) unlinkSync(zipPath)
-    if (existsSync(instanceDir)) rmSync(instanceDir, { recursive: true, force: true })
-
-    const zipResponse = await fetch(`${BASE_URL}/instance.zip`, { method: 'HEAD' })
-    if (!zipResponse.ok) {
+    if (response.status === 404) {
         onProgress({ step: 'Aucune instance trouvée', percent: 100 })
         return;
-    } 
+    }
+
+    if (!response.ok) {
+        throw new Error(`Échec du téléchargement de l’instance: ${response.status}`)
+    }
+
+    const etag = response.headers.get('etag')?.replace(/^W\//, '').replace(/^"|"$/g, '')
+    if (!etag || !/^[a-f0-9]{64}$/i.test(etag)) {
+        throw new Error('L’API n’a pas fourni un ETag SHA-256 valide')
+    }
 
     onProgress({ step: "Téléchargement de l'instance...", percent: 85 })
-    await downloadFileFollowRedirects(`${BASE_URL}/instance.zip`, zipPath)
+    const zipBytes = Buffer.from(await response.arrayBuffer())
+    const downloadedHash = createHash('sha256').update(zipBytes).digest('hex')
+
+    if (downloadedHash !== etag.toLowerCase()) {
+        throw new Error('Le SHA-256 de l’archive téléchargée ne correspond pas à son ETag')
+    }
 
     onProgress({ step: 'Extraction...', percent: 95 })
-    mkdirSync(instanceDir, { recursive: true })
-    await extractZip(zipPath, { dir: instanceDir })
+    mkdirSync(instanceRoot, { recursive: true })
 
-    writeFileSync(hashPath, remoteHash)
+    const tempZipPath = path.join(instanceRoot, `instance-${randomUUID()}.zip.part`)
+    const stagingDir = path.join(instanceRoot, `.game-${randomUUID()}`)
+    const backupDir = path.join(instanceRoot, `.game-backup-${randomUUID()}`)
+    let previousGameMoved = false
+    let newGamePublished = false
+
+    try {
+        writeFileSync(tempZipPath, zipBytes)
+        mkdirSync(stagingDir, { recursive: true })
+        await extractZip(tempZipPath, { dir: stagingDir })
+
+        if (existsSync(instanceDir)) {
+            renameSync(instanceDir, backupDir)
+            previousGameMoved = true
+        }
+
+        renameSync(stagingDir, instanceDir)
+        newGamePublished = true
+
+        if (existsSync(zipPath)) rmSync(zipPath, { force: true })
+        renameSync(tempZipPath, zipPath)
+        writeFileSync(hashPath, downloadedHash)
+
+        if (previousGameMoved) {
+            try {
+                rmSync(backupDir, { recursive: true, force: true })
+            } catch (error) {
+                console.warn('[Instance] Ancienne version conservée:', error)
+            }
+        }
+    } catch (error) {
+        if (newGamePublished) {
+            rmSync(instanceDir, { recursive: true, force: true })
+        }
+        if (previousGameMoved && existsSync(backupDir)) {
+            renameSync(backupDir, instanceDir)
+        }
+        rmSync(stagingDir, { recursive: true, force: true })
+        rmSync(tempZipPath, { force: true })
+        throw error
+    }
+
+    onProgress({ step: 'Instance mise à jour !', percent: 100 })
 }
 
 export function findJavaExec(javaDir: string): string {

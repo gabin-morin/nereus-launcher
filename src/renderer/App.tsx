@@ -9,16 +9,32 @@ import Minimize from "./assets/icons/minimize.svg"
 import Fullscreen from "./assets/icons/fullscreen.svg"
 import Close from "./assets/icons/close.svg"
 
+const API_ORIGIN = 'https://nereus.gabin-morin.fr'
+
+type LauncherServer = {
+  id: string
+  ip: string
+  port: number
+}
+
+type ApiInstance = {
+  id: string
+  name: string
+  minecraftVersion: string
+  loader: string
+  loaderVersion: string | null
+  thumbnailUrl: string | null
+  servers: LauncherServer[]
+}
+
 type LauncherInstance = {
   id: string
   label: string
   version: string
   modloader: string
-  modloaderVersion: string,
-  serveur: {
-    ip: string,
-    port: number
-  }
+  modloaderVersion: string | null
+  thumbnailUrl: string | null
+  servers: LauncherServer[]
 }
 
 
@@ -36,19 +52,45 @@ export default function App() {
   const [profile, setProfile] = useState<OfflineProfile | null>(null)
   const [instances, setInstances] = useState<LauncherInstance[]>([])
 
-  const fetchManifest = async () => {
-    const res = await fetch("https://gabin-morin.fr/manifest.json");
+  const fetchInstances = async () => {
+    try {
+      const res = await fetch(`${API_ORIGIN}/api/instances`, {
+        cache: "no-store",
+      });
 
-    if (!res.ok) return;
+      if (!res.ok) {
+        throw new Error("Impossible de récupérer les instances")
+      }
 
-    const currentManifest = await res.json()
+      const data = await res.json() as { instances: ApiInstance[] }
 
-    setInstances(Array.isArray(currentManifest.instances) ? currentManifest.instances : [])
-    setSelectedInstance(Array.isArray(currentManifest.instances) ? currentManifest.instances[0] : undefined)
+      if (!Array.isArray(data.instances)) {
+        throw new Error("Réponse invalide de l’API des instances")
+      }
+
+      const formattedInstances: LauncherInstance[] = data.instances.map((instance) => ({
+        id: instance.id,
+        label: instance.name,
+        version: instance.minecraftVersion,
+        modloader: instance.loader.toLowerCase(),
+        modloaderVersion: instance.loaderVersion,
+        thumbnailUrl: instance.thumbnailUrl
+          ? new URL(instance.thumbnailUrl, API_ORIGIN).toString()
+          : null,
+        servers: instance.servers ?? [],
+      }))
+
+      setInstances(formattedInstances)
+      setSelectedInstance(formattedInstances[0])
+    } catch (error) {
+      console.error("Erreur de récupération des instances :", error)
+      setInstances([])
+      setSelectedInstance(undefined)
+    }
   }
 
   useEffect(() => {
-    fetchManifest();
+    fetchInstances();
     window.launcher.autoLogin().then(profile => {
       if (profile) {
         console.log("Auto-login réussi :", profile)
@@ -77,10 +119,36 @@ export default function App() {
   }
 
   async function play() {
-    if (!selectedInstance || !selectedInstance.id) return alert('Sélectionne une instance !')
+    if (!selectedInstance || !selectedInstance.id) {
+      return alert("Sélectionne une instance !")
+    }
+
+    if (!selectedInstance.servers.length) {
+      return alert("Aucun serveur n'est configuré pour cette instance !")
+    }
+
     setLoading(true)
-    const result = await window.launcher.launch({ username: username.trim(), version: selectedInstance?.version, ram, serveur: selectedInstance.serveur, profile, id: selectedInstance.id, modloader: selectedInstance.modloader, modloaderVersion: selectedInstance.modloaderVersion })
-    if (!result.success) alert('Erreur : ' + result.error)
+
+    const server = selectedInstance.servers[0]
+
+    const result = await window.launcher.launch({
+      username: username.trim(),
+      version: selectedInstance.version,
+      ram,
+      serveur: {
+        ip: server.ip,
+        port: server.port
+      },
+      profile,
+      id: selectedInstance.id,
+      modloader: selectedInstance.modloader,
+      modloaderVersion: selectedInstance.modloaderVersion ?? ""
+    })
+
+    if (!result.success) {
+      alert("Erreur : " + result.error)
+    }
+
     setLoading(false)
   }
 
@@ -153,7 +221,13 @@ export default function App() {
               <SelectContent>
                 {instances.map((instance) => (
                   <SelectItem key={instance.id} value={instance.id}>
-                    <img className='h-6 w-6 mr-2' src={`https://gabin-morin.fr/nereus/${instance.id}/${instance.id}.png`} />
+                    {instance.thumbnailUrl && (
+                      <img
+                        className='h-6 w-6 mr-2 rounded object-cover'
+                        src={instance.thumbnailUrl}
+                        alt={instance.label}
+                      />
+                    )}
                     <p>{instance.label}</p>
                   </SelectItem>
                 ))}
