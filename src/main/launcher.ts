@@ -6,7 +6,10 @@ import { getOfflineProfile } from './auth'
 import { findJavaExec, MC_DIR } from './downloader'
 import type { LaunchOptions, VersionJson } from '../../types'
 
-export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
+export async function launchMinecraft(
+  opts: LaunchOptions,
+  onRunningChange: (running: boolean) => void
+): Promise<void> {
   const { username, version, ram, profile, id, serveur } = opts
   const currentProfile = profile ?? getOfflineProfile(username)
 
@@ -120,7 +123,21 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
 
   java.stdout?.on('data', (d: Buffer) => console.log('[MC]', d.toString().trim()))
   java.stderr?.on('data', (d: Buffer) => console.error('[MC]', d.toString().trim()))
-  java.on('close', (code: number | null) => console.log(`[MC] exited (code ${code})`))
+
+  let started = false
+  java.once('spawn', () => {
+    started = true
+    onRunningChange(true)
+  })
+  java.once('close', (code: number | null) => {
+    console.log(`[MC] exited (code ${code})`)
+    if (started) onRunningChange(false)
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    java.once('spawn', resolve)
+    java.once('error', reject)
+  })
 }
 
 function generateServersDat(gameDir: string, server: { name: string, ip: string }): void {

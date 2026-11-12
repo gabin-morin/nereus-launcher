@@ -61,6 +61,7 @@ declare global {
     launcher: {
       launch: (opts: LaunchOptions) => Promise<LaunchResult>
       onProgress: (cb: (e: ProgressEvent) => void) => void
+      onGameStatus: (cb: (running: boolean) => void) => void
       minimize: () => void
       toggleFullscreen: () => void
       close: () => void

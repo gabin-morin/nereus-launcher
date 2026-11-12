@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld('launcher', {
   onProgress: (cb: (e: ProgressEvent) => void): void => {
     ipcRenderer.on('progress', (_event, data: ProgressEvent) => cb(data))
   },
+  onGameStatus: (cb: (running: boolean) => void): void => {
+    ipcRenderer.on('game-status', (_event, running: boolean) => cb(running))
+  },
 
   minimize: (): void => { ipcRenderer.send('window-minimize') },
   toggleFullscreen: (): void => { ipcRenderer.send('window-toggle-fullscreen') },

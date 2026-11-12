@@ -38,6 +38,8 @@ if (process.platform === 'win32') app.setAppUserModelId('fr.gabin-morin.nereus')
 app.whenReady().then(createWindow)
 app.on('window-all-closed', () => app.quit())
 
+let runningGameProcesses = 0
+
 ipcMain.handle(
     'launch',
     async (event: IpcMainInvokeEvent, opts: LaunchOptions): Promise<LaunchResult> => {
@@ -49,7 +51,12 @@ ipcMain.handle(
                 opts.modloader ? { type: opts.modloader, version: opts.modloaderVersion } : undefined,
                 opts.id
             )
-            await launchMinecraft(opts)
+            await launchMinecraft(opts, (running) => {
+                runningGameProcesses = Math.max(0, runningGameProcesses + (running ? 1 : -1))
+                if (!event.sender.isDestroyed()) {
+                    event.sender.send('game-status', runningGameProcesses > 0)
+                }
+            })
             return { success: true }
         } catch (err) {
             return { success: false, error: (err as Error).message }

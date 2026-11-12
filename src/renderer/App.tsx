@@ -132,6 +132,13 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    window.launcher.onGameStatus((running) => {
+      setInstanceLaunched(running)
+      if (!running) setRelaunchDialogOpen(false)
+    })
+  }, [])
+
   const checkUsername = () => {
     if (!username || username.trim().length < 2 || username.includes(' ')) return alert('Entre un pseudo valide !')
     window.launcher.saveOfflineAuth(username.trim())
@@ -151,25 +158,30 @@ export default function App() {
 
     const server = selectedInstance.servers[0]
 
-    const result = await window.launcher.launch({
-      username: username.trim(),
-      version: selectedInstance.version,
-      ram,
-      serveur: {
-        ip: server.ip,
-        port: server.port
-      },
-      profile,
-      id: selectedInstance.id,
-      modloader: selectedInstance.modloader,
-      modloaderVersion: selectedInstance.modloaderVersion ?? ""
-    })
+    try {
+      const result = await window.launcher.launch({
+        username: username.trim(),
+        version: selectedInstance.version,
+        ram,
+        serveur: {
+          ip: server.ip,
+          port: server.port
+        },
+        profile,
+        id: selectedInstance.id,
+        modloader: selectedInstance.modloader,
+        modloaderVersion: selectedInstance.modloaderVersion ?? ""
+      })
 
-    if (!result.success) {
-      alert("Erreur : " + result.error)
+      if (!result.success) {
+        alert("Erreur : " + result.error)
+      }
+    } catch (error) {
+      console.error("Erreur de lancement de Minecraft :", error)
+      alert("Erreur : " + (error instanceof Error ? error.message : String(error)))
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   const handlePlayClick = () => {
@@ -335,7 +347,10 @@ export default function App() {
             </button>
             <button
               className='rounded-xl cursor-pointer bg-[#BD3D3D] px-4 py-2 text-white transition-opacity hover:opacity-80'
-              onClick={() => void play()}
+              onClick={() => {
+                setRelaunchDialogOpen(false)
+                void play()
+              }}
               type='button'
             >
               Relancer
