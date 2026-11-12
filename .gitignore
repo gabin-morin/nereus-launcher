@@ -5,3 +5,4 @@ out
 config
 release
 *.DS_Store
+.env

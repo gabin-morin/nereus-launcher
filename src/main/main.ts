@@ -6,6 +6,7 @@ import type { LaunchOptions, LaunchResult, ProgressEvent } from '../../types'
 import { is } from '@electron-toolkit/utils'
 import { loginMicrosoft, MicrosoftProfile, refreshMicrosoft } from './auth'
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
+import { initAutoUpdater } from './updater'
 
 function createWindow(): void {
     const iconPath = is.dev
@@ -29,6 +30,7 @@ function createWindow(): void {
     } else {
         win.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
+    initAutoUpdater(win)
 }
 
 if (process.platform === 'win32') app.setAppUserModelId('fr.gabin-morin.nereus')

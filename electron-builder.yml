@@ -18,3 +18,9 @@ files:
 
 directories:
   output: release
+
+publish:
+  provider: github
+  owner: gabin-morin
+  repo: nereus-launcher
+  releaseType: release

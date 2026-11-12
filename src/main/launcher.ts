@@ -79,7 +79,12 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
 
   const packs = fs.existsSync(resourcepacksDir)
     ? fs.readdirSync(resourcepacksDir)
-      .filter(f => !f.startsWith('.') && (f.endsWith('.zip') || f.endsWith('.jar')))
+      .filter(f => {
+        if (f.startsWith('.')) return false
+
+        const fullPath = path.join(resourcepacksDir, f)
+        return fs.statSync(fullPath).isDirectory() || f.endsWith('.zip') || f.endsWith('.jar')
+      })
       .map(f => `"file/${f}"`)
     : []
 
@@ -92,20 +97,24 @@ export async function launchMinecraft(opts: LaunchOptions): Promise<void> {
 
   const allPacks = [...builtinPacks, ...packs]
 
-  if (packs.length > 0) {
-    const optionsPath = path.join(gameDir, 'options.txt')
-    let options = fs.existsSync(optionsPath) ? fs.readFileSync(optionsPath, 'utf8') : ''
+  const optionsPath = path.join(gameDir, 'options.txt')
+  let options = fs.existsSync(optionsPath) ? fs.readFileSync(optionsPath, 'utf8') : ''
 
-    const packsStr = `resourcePacks:[${allPacks.join(',')}]`
-    if (options.includes('resourcePacks:')) {
-      options = options.replace(/resourcePacks:.*/, packsStr)
-    } else {
-      options += `\n${packsStr}`
-    }
+  const existingMatch = options.match(/resourcePacks:\[([^\]]*)\]/)
+  const existingPacks: string[] = existingMatch
+    ? existingMatch[1].split(',').map(s => s.trim()).filter(Boolean)
+    : []
 
-    console.log(options)
-    fs.writeFileSync(optionsPath, options)
+  const mergedPacks = [...new Set([...existingPacks, ...allPacks])]
+  const packsStr = `resourcePacks:[${mergedPacks.join(',')}]`
+
+  if (options.includes('resourcePacks:')) {
+    options = options.replace(/resourcePacks:\[([^\]]*)\]/, packsStr)
+  } else {
+    options += `\n${packsStr}`
   }
+
+  fs.writeFileSync(optionsPath, options)
 
   const java = spawn(javaExec, args, { detached: true, stdio: 'pipe' })
 

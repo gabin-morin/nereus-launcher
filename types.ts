@@ -69,6 +69,12 @@ declare global {
       autoLogin: () => Promise<OfflineProfile | null>
       saveOfflineAuth: (username: string) => Promise<void>
       loadOfflineAuth: () => Promise<{ username: string } | null>
+      downloadUpdate: () => void
+      installUpdate: () => void
+      onUpdateAvailable: (cb: (info: any) => void) => void
+      onUpdateProgress: (cb: (progress: any) => void) => void
+      onUpdateDownloaded: (cb: (info: any) => void) => void
+      onUpdateError: (cb: (msg: string) => void) => void
     }
   }
 }

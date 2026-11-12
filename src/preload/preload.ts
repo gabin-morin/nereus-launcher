@@ -19,5 +19,20 @@ contextBridge.exposeInMainWorld('launcher', {
   logout: () => ipcRenderer.invoke('logout'),
 
   saveOfflineAuth: (username: string) => ipcRenderer.invoke('save-offline-auth', username),
-  loadOfflineAuth: () => ipcRenderer.invoke('load-offline-auth')
+  loadOfflineAuth: () => ipcRenderer.invoke('load-offline-auth'),
+
+  downloadUpdate: () => ipcRenderer.send('update:download'),
+  installUpdate: () => ipcRenderer.send('update:install'),
+
+  onUpdateAvailable: (cb: (info: any) => void) =>
+    ipcRenderer.on('update:available', (_e, info) => cb(info)),
+
+  onUpdateProgress: (cb: (progress: any) => void) =>
+    ipcRenderer.on('update:progress', (_e, progress) => cb(progress)),
+
+  onUpdateDownloaded: (cb: (info: any) => void) =>
+    ipcRenderer.on('update:downloaded', (_e, info) => cb(info)),
+
+  onUpdateError: (cb: (message: string) => void) =>
+    ipcRenderer.on('update:error', (_e, message) => cb(message)),
 })
